@@ -252,8 +252,12 @@ void HandleUserInput(void) {
         !CheckCollisionPointRec(mousePosition, playButtonRect) &&
         !CheckCollisionPointRec(mousePosition, nextButtonRect) &&
         !CheckCollisionPointRec(mousePosition, indicatorRect)) {
-        grid[mouseYGridPos][mouseXGridPos] = selectCellType;
-        DrawCell(mouseXGridPos, mouseYGridPos, GetCellColor(selectCellType));
+        if ((mouseXGridPos >= 0 && mouseXGridPos < cols) &&
+            (mouseYGridPos >= 0 && mouseYGridPos < rows)) {
+            grid[mouseYGridPos][mouseXGridPos] = selectCellType;
+            DrawCell(mouseXGridPos, mouseYGridPos,
+                     GetCellColor(selectCellType));
+        }
     }
 
     DrawCellLines(mouseXGridPos, mouseYGridPos, WHITE);
