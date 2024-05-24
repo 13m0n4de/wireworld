@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include "raylib.h"
+#include "raymath.h"
 
 #define EMPTY_COLOR      \
     CLITERAL(Color) {    \
@@ -41,6 +42,13 @@ const int nextButtonY = cellSize / 2;
 const int nextButtonSize = cellSize;
 const int nextButtonBarWidth = playButtonSize / 4;
 
+const Rectangle playButtonRect = {playButtonX, playButtonY, playButtonSize,
+                                  playButtonSize};
+const Rectangle nextButtonRect = {nextButtonX, nextButtonY, nextButtonSize,
+                                  nextButtonSize};
+const Rectangle indicatorGruopRect = {indicatorX, indicatorY, indicatorSize * 4,
+                                      indicatorSize};
+
 const int rows = screenHeight / cellSize;
 const int cols = screenWidth / cellSize;
 
@@ -52,7 +60,9 @@ const float refreshInterval = 1.0f / refreshRate;
 Cell selectCellType = EMPTY;
 Cell cellTypes[] = {EMPTY, CONDUCTOR, HEAD, TAIL};
 
-Cell** grid;
+Cell** grid = NULL;
+
+Camera2D camera = {0};
 
 Color GetCellColor(Cell cell) {
     switch (cell) {
@@ -198,18 +208,50 @@ void DrawNextButton(void) {
     }
 }
 
-void HandleUserInput(void) {
+void HandleCellPlacements(void) {
     Vector2 mousePosition = GetMousePosition();
-    int mouseYGridPos = (int)(mousePosition.y / cellSize);
-    int mouseXGridPos = (int)(mousePosition.x / cellSize);
+    Vector2 mouseScreenPosition = GetScreenToWorld2D(mousePosition, camera);
+    int mouseYGridPos = (int)(mouseScreenPosition.y / cellSize);
+    int mouseXGridPos = (int)(mouseScreenPosition.x / cellSize);
 
-    Rectangle playButtonRect = {playButtonX, playButtonY, playButtonSize,
-                                playButtonSize};
-    Rectangle nextButtonRect = {nextButtonX, nextButtonY, nextButtonSize,
-                                nextButtonSize};
-    Rectangle indicatorRect = {indicatorX, indicatorY, indicatorSize * 4,
-                               indicatorSize};
+    if (IsMouseButtonDown(MOUSE_BUTTON_LEFT) &&
+        !CheckCollisionPointRec(mousePosition, playButtonRect) &&
+        !CheckCollisionPointRec(mousePosition, nextButtonRect) &&
+        !CheckCollisionPointRec(mousePosition, indicatorGruopRect)) {
+        if ((mouseXGridPos >= 0 && mouseXGridPos < cols) &&
+            (mouseYGridPos >= 0 && mouseYGridPos < rows)) {
+            grid[mouseYGridPos][mouseXGridPos] = selectCellType;
+            DrawCell(mouseXGridPos, mouseYGridPos,
+                     GetCellColor(selectCellType));
+        }
+    }
 
+    DrawCellLines(mouseXGridPos, mouseYGridPos, WHITE);
+}
+
+void HandleButtonClicks(void) {
+    Vector2 mousePosition = GetMousePosition();
+
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        if (CheckCollisionPointRec(mousePosition, playButtonRect))
+            isPlaying = !isPlaying;
+
+        if (CheckCollisionPointRec(mousePosition, nextButtonRect) && !isPlaying)
+            UpdateGrid();
+
+        for (int i = 0; i < 4; i++) {
+            int x = indicatorX + indicatorSize * i;
+            Rectangle indicatorRect = {x, indicatorY, indicatorSize,
+                                       indicatorSize};
+            if (CheckCollisionPointRec(mousePosition, indicatorRect)) {
+                selectCellType = cellTypes[i];
+                break;
+            }
+        }
+    }
+}
+
+void HandleShortcuts(void) {
     if (IsKeyPressed(KEY_SPACE))
         isPlaying = !isPlaying;
 
@@ -229,43 +271,28 @@ void HandleUserInput(void) {
         selectCellType = HEAD;
     else if (IsKeyPressed(KEY_FOUR) || IsKeyPressed(KEY_KP_4))
         selectCellType = TAIL;
+}
 
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-        if (CheckCollisionPointRec(mousePosition, playButtonRect))
-            isPlaying = !isPlaying;
-
-        if (CheckCollisionPointRec(mousePosition, nextButtonRect) && !isPlaying)
-            UpdateGrid();
-
-        for (int i = 0; i < 4; i++) {
-            int x = indicatorX + indicatorSize * i;
-            Rectangle indicatorRect = {x, indicatorY, indicatorSize,
-                                       indicatorSize};
-            if (CheckCollisionPointRec(mousePosition, indicatorRect)) {
-                selectCellType = cellTypes[i];
-                break;
-            }
-        }
+void HandleCameraMovement(void) {
+    if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT)) {
+        Vector2 delta = GetMouseDelta();
+        delta = Vector2Scale(delta, -1.0f / camera.zoom);
+        camera.target = Vector2Add(camera.target, delta);
     }
+}
 
-    if (IsMouseButtonDown(MOUSE_BUTTON_LEFT) &&
-        !CheckCollisionPointRec(mousePosition, playButtonRect) &&
-        !CheckCollisionPointRec(mousePosition, nextButtonRect) &&
-        !CheckCollisionPointRec(mousePosition, indicatorRect)) {
-        if ((mouseXGridPos >= 0 && mouseXGridPos < cols) &&
-            (mouseYGridPos >= 0 && mouseYGridPos < rows)) {
-            grid[mouseYGridPos][mouseXGridPos] = selectCellType;
-            DrawCell(mouseXGridPos, mouseYGridPos,
-                     GetCellColor(selectCellType));
-        }
-    }
-
-    DrawCellLines(mouseXGridPos, mouseYGridPos, WHITE);
+void HandleUserInput(void) {
+    HandleCellPlacements();
+    HandleButtonClicks();
+    HandleShortcuts();
+    HandleCameraMovement();
 }
 
 int main(void) {
     InitWindow(screenWidth, screenHeight, "Wireworld Simulator");
     SetTargetFPS(60);
+
+    camera.zoom = 1.0f;
 
     InitGrid();
 
@@ -273,7 +300,10 @@ int main(void) {
 
     while (!WindowShouldClose()) {
         BeginDrawing();
+
         ClearBackground(RAYWHITE);
+
+        BeginMode2D(camera);
 
         float frameTime = GetFrameTime();
         elapsedTime += frameTime;
@@ -291,6 +321,8 @@ int main(void) {
         }
 
         HandleUserInput();
+
+        EndMode2D();
 
         DrawIndicators();
 
