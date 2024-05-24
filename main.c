@@ -118,17 +118,17 @@ void ClearGrid(void) {
 }
 
 void InitGrid(void) {
-    grid.cells = calloc(grid.rows, sizeof(Cell*));
+    grid.cells = RL_CALLOC(grid.rows, sizeof(Cell*));
     for (int y = 0; y < grid.rows; y++) {
-        grid.cells[y] = calloc(grid.cols, sizeof(Cell));
+        grid.cells[y] = RL_CALLOC(grid.cols, sizeof(Cell));
     }
 }
 
 void FreeGrid(void) {
     for (int i = 0; i < grid.rows; i++) {
-        free(grid.cells[i]);
+        RL_FREE(grid.cells[i]);
     }
-    free(grid.cells);
+    RL_FREE(grid.cells);
 }
 
 void UpdateGrid(void) {
@@ -173,9 +173,9 @@ void ExpandGrid(Direction direction, int expandSize) {
     int xOffset = (direction == LEFT ? expandSize : 0);
     int yOffset = (direction == UP ? expandSize : 0);
 
-    Cell** newCells = calloc(newRows, sizeof(Cell*));
+    Cell** newCells = RL_CALLOC(newRows, sizeof(Cell*));
     for (int y = 0; y < newRows; y++) {
-        newCells[y] = calloc(newCols, sizeof(Cell));
+        newCells[y] = RL_CALLOC(newCols, sizeof(Cell));
     }
 
     for (int y = 0; y < grid.rows; y++) {
