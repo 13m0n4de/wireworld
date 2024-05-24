@@ -118,11 +118,10 @@ void ClearGrid(void) {
 }
 
 void InitGrid(void) {
-    grid.cells = malloc(grid.rows * sizeof(Cell*));
+    grid.cells = calloc(grid.rows, sizeof(Cell*));
     for (int y = 0; y < grid.rows; y++) {
-        grid.cells[y] = malloc(grid.cols * sizeof(Cell));
+        grid.cells[y] = calloc(grid.cols, sizeof(Cell));
     }
-    ClearGrid();
 }
 
 void FreeGrid(void) {
@@ -174,15 +173,9 @@ void ExpandGrid(Direction direction, int expandSize) {
     int xOffset = (direction == LEFT ? expandSize : 0);
     int yOffset = (direction == UP ? expandSize : 0);
 
-    Cell** newCells = malloc(newRows * sizeof(Cell*));
+    Cell** newCells = calloc(newRows, sizeof(Cell*));
     for (int y = 0; y < newRows; y++) {
-        newCells[y] = malloc(newCols * sizeof(Cell));
-    }
-
-    for (int y = 0; y < newRows; y++) {
-        for (int x = 0; x < newCols; x++) {
-            newCells[y][x] = EMPTY;
-        }
+        newCells[y] = calloc(newCols, sizeof(Cell));
     }
 
     for (int y = 0; y < grid.rows; y++) {
