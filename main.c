@@ -26,6 +26,8 @@ const int screenHeight = 460;
 
 const int cellSize = 20;
 
+const int gridIncrement = 10;
+
 const int indicatorSize = cellSize;
 const int indicatorPadding = cellSize / 2;
 const int indicatorX = screenWidth - indicatorSize * 4 - indicatorPadding;
@@ -165,13 +167,13 @@ void UpdateGrid(void) {
     }
 }
 
-void ExpandGrid(Direction direction, int expandSize) {
+void ExpandGrid(Direction direction) {
     int newRows =
-        grid.rows + (direction == UP || direction == DOWN ? expandSize : 0);
-    int newCols =
-        grid.cols + (direction == LEFT || direction == RIGHT ? expandSize : 0);
-    int xOffset = (direction == LEFT ? expandSize : 0);
-    int yOffset = (direction == UP ? expandSize : 0);
+        grid.rows + (direction == UP || direction == DOWN ? gridIncrement : 0);
+    int newCols = grid.cols +
+                  (direction == LEFT || direction == RIGHT ? gridIncrement : 0);
+    int xOffset = (direction == LEFT ? gridIncrement : 0);
+    int yOffset = (direction == UP ? gridIncrement : 0);
 
     Cell** newCells = RL_CALLOC(newRows, sizeof(Cell*));
     for (int y = 0; y < newRows; y++) {
@@ -327,13 +329,13 @@ void HandleCameraMovement(void) {
         bool isOutsideY = cameraOffset.y + screenHeight >
                           grid.position.y + grid.rows * cellSize;
         if (cameraOffset.x < 0)
-            ExpandGrid(LEFT, 10);
+            ExpandGrid(LEFT);
         if (cameraOffset.y < 0)
-            ExpandGrid(UP, 10);
+            ExpandGrid(UP);
         if (isOutsideX)
-            ExpandGrid(RIGHT, 10);
+            ExpandGrid(RIGHT);
         if (isOutsideY)
-            ExpandGrid(DOWN, 10);
+            ExpandGrid(DOWN);
     }
 }
 
