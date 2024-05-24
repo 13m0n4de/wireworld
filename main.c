@@ -49,9 +49,6 @@ const Rectangle nextButtonRect = {nextButtonX, nextButtonY, nextButtonSize,
 const Rectangle indicatorGruopRect = {indicatorX, indicatorY, indicatorSize * 4,
                                       indicatorSize};
 
-const int rows = screenHeight / cellSize;
-const int cols = screenWidth / cellSize;
-
 int isPlaying = 0;
 
 const int refreshRate = 5;
@@ -60,7 +57,19 @@ const float refreshInterval = 1.0f / refreshRate;
 Cell selectCellType = EMPTY;
 Cell cellTypes[] = {EMPTY, CONDUCTOR, HEAD, TAIL};
 
-Cell** grid = NULL;
+typedef enum { UP, DOWN, LEFT, RIGHT } Direction;
+
+typedef struct {
+    Vector2 position;
+    int rows;
+    int cols;
+    Cell** cells;
+} Grid;
+
+Grid grid = {{0.0f, 0.0f},
+             screenHeight / cellSize,
+             screenWidth / cellSize,
+             NULL};
 
 Camera2D camera = {0};
 
@@ -88,8 +97,9 @@ int CountHeadNeighbors(int row, int col) {
                 continue;
             int newRow = row + y;
             int newCol = col + x;
-            if (newRow >= 0 && newRow < rows && newCol >= 0 && newCol < cols) {
-                if (grid[newRow][newCol] == HEAD) {
+            if (newRow >= 0 && newRow < grid.rows && newCol >= 0 &&
+                newCol < grid.cols) {
+                if (grid.cells[newRow][newCol] == HEAD) {
                     headCount++;
                 }
             }
@@ -100,71 +110,109 @@ int CountHeadNeighbors(int row, int col) {
 }
 
 void ClearGrid(void) {
-    for (int y = 0; y < rows; y++) {
-        for (int x = 0; x < cols; x++) {
-            grid[y][x] = EMPTY;
+    for (int y = 0; y < grid.rows; y++) {
+        for (int x = 0; x < grid.cols; x++) {
+            grid.cells[y][x] = EMPTY;
         }
     }
 }
 
 void InitGrid(void) {
-    grid = malloc(rows * sizeof(Cell*));
-    for (int y = 0; y < rows; y++) {
-        grid[y] = malloc(cols * sizeof(Cell));
+    grid.cells = malloc(grid.rows * sizeof(Cell*));
+    for (int y = 0; y < grid.rows; y++) {
+        grid.cells[y] = malloc(grid.cols * sizeof(Cell));
     }
     ClearGrid();
 }
 
 void FreeGrid(void) {
-    for (int i = 0; i < rows; i++) {
-        free(grid[i]);
+    for (int i = 0; i < grid.rows; i++) {
+        free(grid.cells[i]);
     }
-    free(grid);
+    free(grid.cells);
 }
 
 void UpdateGrid(void) {
-    Cell newGrid[rows][cols];
+    Cell newCells[grid.rows][grid.cols];
 
-    for (int y = 0; y < rows; y++) {
-        for (int x = 0; x < cols; x++) {
-            switch (grid[y][x]) {
+    for (int y = 0; y < grid.rows; y++) {
+        for (int x = 0; x < grid.cols; x++) {
+            switch (grid.cells[y][x]) {
                 case EMPTY:
-                    newGrid[y][x] = EMPTY;
+                    newCells[y][x] = EMPTY;
                     break;
                 case HEAD:
-                    newGrid[y][x] = TAIL;
+                    newCells[y][x] = TAIL;
                     break;
                 case TAIL:
-                    newGrid[y][x] = CONDUCTOR;
+                    newCells[y][x] = CONDUCTOR;
                     break;
                 case CONDUCTOR: {
                     int headNeighbors = CountHeadNeighbors(y, x);
                     if (headNeighbors == 1 || headNeighbors == 2) {
-                        newGrid[y][x] = HEAD;
+                        newCells[y][x] = HEAD;
                     } else {
-                        newGrid[y][x] = CONDUCTOR;
+                        newCells[y][x] = CONDUCTOR;
                     }
                 } break;
             }
         }
     }
 
-    for (int y = 0; y < rows; y++) {
-        for (int x = 0; x < cols; x++) {
-            grid[y][x] = newGrid[y][x];
+    for (int y = 0; y < grid.rows; y++) {
+        for (int x = 0; x < grid.cols; x++) {
+            grid.cells[y][x] = newCells[y][x];
         }
     }
 }
 
+void ExpandGrid(Direction direction, int expandSize) {
+    int newRows =
+        grid.rows + (direction == UP || direction == DOWN ? expandSize : 0);
+    int newCols =
+        grid.cols + (direction == LEFT || direction == RIGHT ? expandSize : 0);
+    int xOffset = (direction == LEFT ? expandSize : 0);
+    int yOffset = (direction == UP ? expandSize : 0);
+
+    Cell** newCells = malloc(newRows * sizeof(Cell*));
+    for (int y = 0; y < newRows; y++) {
+        newCells[y] = malloc(newCols * sizeof(Cell));
+    }
+
+    for (int y = 0; y < newRows; y++) {
+        for (int x = 0; x < newCols; x++) {
+            newCells[y][x] = EMPTY;
+        }
+    }
+
+    for (int y = 0; y < grid.rows; y++) {
+        for (int x = 0; x < grid.cols; x++) {
+            newCells[y + yOffset][x + xOffset] = grid.cells[y][x];
+        }
+    }
+
+    FreeGrid();
+
+    grid.cells = newCells;
+    grid.rows = newRows;
+    grid.cols = newCols;
+
+    grid.position.x -= cellSize * xOffset;
+    grid.position.y -= cellSize * yOffset;
+}
+
 void DrawCell(int xGridPos, int yGridPos, Color cellColor) {
-    DrawRectangle(xGridPos * cellSize, yGridPos * cellSize, cellSize, cellSize,
+    DrawRectangle(grid.position.x + xGridPos * cellSize,
+                  grid.position.y + yGridPos * cellSize, cellSize, cellSize,
                   cellColor);
-    DrawRectangleLines(xGridPos * cellSize, yGridPos * cellSize, cellSize,
+    DrawRectangleLines(grid.position.x + xGridPos * cellSize,
+                       grid.position.y + yGridPos * cellSize, cellSize,
                        cellSize, BLACK);
 }
 
 void DrawCellLines(int xGridPos, int yGridPos, Color cellColor) {
-    DrawRectangleLines(xGridPos * cellSize, yGridPos * cellSize, cellSize,
+    DrawRectangleLines(grid.position.x + xGridPos * cellSize,
+                       grid.position.y + yGridPos * cellSize, cellSize,
                        cellSize, cellColor);
 }
 
@@ -211,6 +259,7 @@ void DrawNextButton(void) {
 void HandleCellPlacements(void) {
     Vector2 mousePosition = GetMousePosition();
     Vector2 mouseScreenPosition = GetScreenToWorld2D(mousePosition, camera);
+    mouseScreenPosition = Vector2Subtract(mouseScreenPosition, grid.position);
     int mouseYGridPos = (int)(mouseScreenPosition.y / cellSize);
     int mouseXGridPos = (int)(mouseScreenPosition.x / cellSize);
 
@@ -218,9 +267,9 @@ void HandleCellPlacements(void) {
         !CheckCollisionPointRec(mousePosition, playButtonRect) &&
         !CheckCollisionPointRec(mousePosition, nextButtonRect) &&
         !CheckCollisionPointRec(mousePosition, indicatorGruopRect)) {
-        if ((mouseXGridPos >= 0 && mouseXGridPos < cols) &&
-            (mouseYGridPos >= 0 && mouseYGridPos < rows)) {
-            grid[mouseYGridPos][mouseXGridPos] = selectCellType;
+        if ((mouseXGridPos >= 0 && mouseXGridPos < grid.cols) &&
+            (mouseYGridPos >= 0 && mouseYGridPos < grid.rows)) {
+            grid.cells[mouseYGridPos][mouseXGridPos] = selectCellType;
             DrawCell(mouseXGridPos, mouseYGridPos,
                      GetCellColor(selectCellType));
         }
@@ -278,6 +327,20 @@ void HandleCameraMovement(void) {
         Vector2 delta = GetMouseDelta();
         delta = Vector2Scale(delta, -1.0f / camera.zoom);
         camera.target = Vector2Add(camera.target, delta);
+
+        Vector2 cameraOffset = Vector2Subtract(camera.target, grid.position);
+        bool isOutsideX = cameraOffset.x + screenWidth >
+                          grid.position.x + grid.cols * cellSize;
+        bool isOutsideY = cameraOffset.y + screenHeight >
+                          grid.position.y + grid.rows * cellSize;
+        if (cameraOffset.x < 0)
+            ExpandGrid(LEFT, 10);
+        if (cameraOffset.y < 0)
+            ExpandGrid(UP, 10);
+        if (isOutsideX)
+            ExpandGrid(RIGHT, 10);
+        if (isOutsideY)
+            ExpandGrid(DOWN, 10);
     }
 }
 
@@ -292,11 +355,11 @@ int main(void) {
     InitWindow(screenWidth, screenHeight, "Wireworld Simulator");
     SetTargetFPS(60);
 
+    float elapsedTime = 0.0f;
+
     camera.zoom = 1.0f;
 
     InitGrid();
-
-    float elapsedTime = 0.0f;
 
     while (!WindowShouldClose()) {
         BeginDrawing();
@@ -313,9 +376,9 @@ int main(void) {
             elapsedTime = 0.0f;
         }
 
-        for (int y = 0; y < rows; y++) {
-            for (int x = 0; x < cols; x++) {
-                Color cellColor = GetCellColor(grid[y][x]);
+        for (int y = 0; y < grid.rows; y++) {
+            for (int x = 0; x < grid.cols; x++) {
+                Color cellColor = GetCellColor(grid.cells[y][x]);
                 DrawCell(x, y, cellColor);
             }
         }
