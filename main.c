@@ -21,10 +21,19 @@
 
 typedef enum { EMPTY, CONDUCTOR, HEAD, TAIL } Cell;
 
-const int screenWidth = 800;
-const int screenHeight = 460;
+typedef enum { UP, DOWN, LEFT, RIGHT } Direction;
 
-const int cellSize = 20;
+typedef struct {
+    Vector2 position;
+    int rows;
+    int cols;
+    Cell** cells;
+} Grid;
+
+const int screenWidth = 1600;
+const int screenHeight = 1200;
+
+const int cellSize = 40;
 
 const int gridIncrement = 10;
 
@@ -58,15 +67,6 @@ const float refreshInterval = 1.0f / refreshRate;
 
 Cell selectCellType = EMPTY;
 Cell cellTypes[] = {EMPTY, CONDUCTOR, HEAD, TAIL};
-
-typedef enum { UP, DOWN, LEFT, RIGHT } Direction;
-
-typedef struct {
-    Vector2 position;
-    int rows;
-    int cols;
-    Cell** cells;
-} Grid;
 
 Grid grid = {{0.0f, 0.0f},
              screenHeight / cellSize,
@@ -251,6 +251,12 @@ void DrawNextButton(void) {
     }
 }
 
+void DrawUI(void) {
+    DrawIndicators();
+    DrawPlayButton();
+    DrawNextButton();
+}
+
 void HandleCellPlacements(void) {
     Vector2 mousePosition = GetMousePosition();
     Vector2 mouseScreenPosition = GetScreenToWorld2D(mousePosition, camera);
@@ -346,6 +352,29 @@ void HandleUserInput(void) {
     HandleCameraMovement();
 }
 
+void DrawVisibleCells(void) {
+    Vector2 topLeft = GetScreenToWorld2D(Vector2Zero(), camera);
+    Vector2 bottomRight =
+        GetScreenToWorld2D((Vector2){screenWidth, screenHeight}, camera);
+
+    int startX = (int)floor((topLeft.x - grid.position.x) / cellSize);
+    int startY = (int)floor((topLeft.y - grid.position.y) / cellSize);
+    int endX = (int)ceil((bottomRight.x - grid.position.x) / cellSize);
+    int endY = (int)ceil((bottomRight.y - grid.position.y) / cellSize);
+
+    startX = Clamp(startX, 0, grid.cols);
+    startY = Clamp(startY, 0, grid.rows);
+    endX = Clamp(endX, 0, grid.cols);
+    endY = Clamp(endY, 0, grid.rows);
+
+    for (int y = startY; y < endY; y++) {
+        for (int x = startX; x < endX; x++) {
+            Color cellColor = GetCellColor(grid.cells[y][x]);
+            DrawCell(x, y, cellColor);
+        }
+    }
+}
+
 int main(void) {
     InitWindow(screenWidth, screenHeight, "Wireworld Simulator");
     SetTargetFPS(60);
@@ -371,22 +400,13 @@ int main(void) {
             elapsedTime = 0.0f;
         }
 
-        for (int y = 0; y < grid.rows; y++) {
-            for (int x = 0; x < grid.cols; x++) {
-                Color cellColor = GetCellColor(grid.cells[y][x]);
-                DrawCell(x, y, cellColor);
-            }
-        }
+        DrawVisibleCells();
 
         HandleUserInput();
 
         EndMode2D();
 
-        DrawIndicators();
-
-        DrawPlayButton();
-
-        DrawNextButton();
+        DrawUI();
 
         EndDrawing();
     }
