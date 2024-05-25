@@ -63,7 +63,7 @@ const Rectangle nextButtonRect = {nextButtonX, nextButtonY, nextButtonSize,
 const Rectangle indicatorGruopRect = {indicatorX, indicatorY, indicatorSize * 4,
                                       indicatorSize};
 
-int isPlaying = 0;
+bool isPlaying = false;
 
 const int refreshRate = 5;
 const float refreshInterval = 1.0f / refreshRate;
