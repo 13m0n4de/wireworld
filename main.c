@@ -33,24 +33,27 @@ typedef struct {
 const int screenWidth = 1600;
 const int screenHeight = 1200;
 
-const int cellSize = 40;
+int cellSize = 40;
+const int minCellSize = 10;
+const int maxCellSize = 100;
 
 const int gridIncrement = 10;
+const int zoomSpeed = 3;
 
-const int indicatorSize = cellSize;
-const int indicatorPadding = cellSize / 2;
+const int indicatorSize = 40;
+const int indicatorPadding = 20;
 const int indicatorX = screenWidth - indicatorSize * 4 - indicatorPadding;
 const int indicatorY = indicatorPadding;
 
-const int playButtonX = cellSize / 2;
-const int playButtonY = cellSize / 2;
-const int playButtonSize = cellSize;
+const int playButtonX = 20;
+const int playButtonY = 20;
+const int playButtonSize = 40;
 const int playButtonBarWidth = playButtonSize / 4;
 const int playButtonBarGap = playButtonBarWidth;
 
-const int nextButtonX = playButtonX + playButtonSize + cellSize / 2;
-const int nextButtonY = cellSize / 2;
-const int nextButtonSize = cellSize;
+const int nextButtonX = playButtonX + playButtonSize + 20;
+const int nextButtonY = 20;
+const int nextButtonSize = 40;
 const int nextButtonBarWidth = playButtonSize / 4;
 
 const Rectangle playButtonRect = {playButtonX, playButtonY, playButtonSize,
@@ -68,10 +71,7 @@ const float refreshInterval = 1.0f / refreshRate;
 Cell selectCellType = EMPTY;
 Cell cellTypes[] = {EMPTY, CONDUCTOR, HEAD, TAIL};
 
-Grid grid = {{0.0f, 0.0f},
-             screenHeight / cellSize,
-             screenWidth / cellSize,
-             NULL};
+Grid grid = {{0.0f, 0.0f}, screenHeight / 40, screenWidth / 40, NULL};
 
 Camera2D camera = {0};
 
@@ -328,20 +328,25 @@ void HandleCameraMovement(void) {
         Vector2 delta = GetMouseDelta();
         delta = Vector2Scale(delta, -1.0f / camera.zoom);
         camera.target = Vector2Add(camera.target, delta);
+    }
+}
 
-        Vector2 cameraOffset = Vector2Subtract(camera.target, grid.position);
-        bool isOutsideX = cameraOffset.x + screenWidth >
-                          grid.position.x + grid.cols * cellSize;
-        bool isOutsideY = cameraOffset.y + screenHeight >
-                          grid.position.y + grid.rows * cellSize;
-        if (cameraOffset.x < 0)
-            ExpandGrid(LEFT);
-        if (cameraOffset.y < 0)
-            ExpandGrid(UP);
-        if (isOutsideX)
-            ExpandGrid(RIGHT);
-        if (isOutsideY)
-            ExpandGrid(DOWN);
+void HandleZoom(void) {
+    float wheel = GetMouseWheelMove();
+    if (wheel != 0) {
+        int newCellSize = cellSize + wheel * zoomSpeed;
+        if (newCellSize >= minCellSize && newCellSize <= maxCellSize) {
+            Vector2 mousePos = GetScreenToWorld2D(GetMousePosition(), camera);
+            Vector2 gridPos =
+                Vector2Divide(Vector2Subtract(mousePos, grid.position),
+                              (Vector2){cellSize, cellSize});
+
+            cellSize = newCellSize;
+
+            grid.position = Vector2Subtract(
+                mousePos,
+                Vector2Multiply(gridPos, (Vector2){cellSize, cellSize}));
+        }
     }
 }
 
@@ -350,6 +355,22 @@ void HandleUserInput(void) {
     HandleButtonClicks();
     HandleShortcuts();
     HandleCameraMovement();
+    HandleZoom();
+
+    Vector2 cameraOffset = Vector2Subtract(camera.target, grid.position);
+    if (cameraOffset.x < 0) {
+        ExpandGrid(LEFT);
+    }
+    if (cameraOffset.y < 0) {
+        ExpandGrid(UP);
+    }
+    if (cameraOffset.x + screenWidth > grid.position.x + grid.cols * cellSize) {
+        ExpandGrid(RIGHT);
+    }
+    if (cameraOffset.y + screenHeight >
+        grid.position.y + grid.rows * cellSize) {
+        ExpandGrid(DOWN);
+    }
 }
 
 void DrawVisibleCells(void) {
